@@ -28,7 +28,11 @@ export const McpServerInstallSchema = z.object({
     .regex(/^[A-Za-z0-9-\s]{1,63}$/, 'Name can only contain letters, numbers, spaces, and dashes (-)'),
   serverConfig: McpServerConfigSchema,
   userConfigValues: McpServerUserConfigValuesSchema.optional(),
-  oauthProvider: z.enum(['google', 'slack', 'slack-browser', 'linkedin-browser']).nullable(),
+  oauthProvider: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('OAuth provider name (e.g., google, slack-browser, linkedin-browser)'),
   oauthAccessToken: z.string().optional(),
   oauthRefreshToken: z.string().optional(),
   oauthExpiryDate: z.string().nullable().optional(),
@@ -123,6 +127,13 @@ export default class McpServerModel {
       const { getOAuthProvider, hasOAuthProvider } = await import('@backend/server/plugins/oauth');
       const { handleProviderTokens } = await import('@backend/server/plugins/oauth/utils/oauth-provider-helper');
 
+      // Validate OAuth provider exists
+      if (!hasOAuthProvider(oauthProvider)) {
+        throw new Error(
+          `Invalid OAuth provider: ${oauthProvider}. Available providers: ${Object.keys((await import('@backend/server/plugins/oauth')).oauthProviders).join(', ')}`
+        );
+      }
+
       if (hasOAuthProvider(oauthProvider)) {
         const provider = getOAuthProvider(oauthProvider);
 
@@ -138,7 +149,7 @@ export default class McpServerModel {
         // Use the provider's token handler to get the correct env vars
         const tokenEnvVars = await handleProviderTokens(provider, tokens, id);
 
-        // Merge OAuth env variables with existing ones (including those from server_docker)
+        // Merge OAuth env variables with existing ones
         if (tokenEnvVars) {
           finalServerConfig = {
             ...serverConfig,
