@@ -69,7 +69,7 @@ export const useToolsStore = create<ToolsStore>((set, get) => ({
         const shouldAutoSelectAll = currentSelection.size === 0;
         const selectedToolIds = shouldAutoSelectAll 
           ? new Set(data.map((tool) => tool.id))
-          : new Set([...currentSelection].filter(id => data.some(tool => tool.id === id))); // Keep existing selection, remove tools that no longer exist
+          : new Set([...currentSelection].filter(id => data.some(tool => tool.id === id))); 
         
         set({
           availableTools: data,
@@ -89,7 +89,7 @@ export const useToolsStore = create<ToolsStore>((set, get) => ({
     const shouldAutoSelectAll = currentSelection.size === 0;
     const selectedToolIds = shouldAutoSelectAll 
       ? new Set(tools.map((tool) => tool.id))
-      : new Set([...currentSelection].filter(id => tools.some(tool => tool.id === id))); // Keep existing selection, remove tools that no longer exist
+      : new Set([...currentSelection].filter(id => tools.some(tool => tool.id === id))); 
     
     set({
       availableTools: tools,
