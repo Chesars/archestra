@@ -4,6 +4,14 @@ import { useState } from 'react';
 
 import { Badge } from '@ui/components/ui/badge';
 import { Button } from '@ui/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/ui/card';
 import { Checkbox } from '@ui/components/ui/checkbox';
 import { Input } from '@ui/components/ui/input';
@@ -20,6 +28,10 @@ function OllamaProviderPage() {
   const [selectedLabel, setSelectedLabel] = useState<string>('all');
   const [toolCallsOnly, setToolCallsOnly] = useState(false);
   const [modelsBeingUninstalled, setModelsBeingUninstalled] = useState<Set<string>>(new Set());
+  const [modelToUninstall, setModelToUninstall] = useState<string | null>(null);
+  const [showUninstallDialog, setShowUninstallDialog] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null);
+  const [showErrorMessage, setShowErrorMessage] = useState<string | null>(null);
 
   const { installedModels, downloadModel, uninstallModel, downloadProgress, modelsBeingDownloaded } = useOllamaStore();
 
@@ -43,36 +55,45 @@ function OllamaProviderPage() {
     return installedModels.some((model) => model.name === modelName);
   };
 
-  const handleUninstallModel = async (fullModelName: string) => {
-    // Show confirmation dialog
-    const confirmed = window.confirm(
-      `Are you sure you want to uninstall ${fullModelName}?\n\nThis will permanently remove the model from your system.`
-    );
-    
-    if (!confirmed) {
-      return;
-    }
+  const handleUninstallClick = (fullModelName: string) => {
+    console.log('Uninstall clicked for:', fullModelName);
+    setModelToUninstall(fullModelName);
+    setShowUninstallDialog(true);
+  };
 
-    setModelsBeingUninstalled(prev => new Set([...prev, fullModelName]));
+  const handleConfirmUninstall = async () => {
+    if (!modelToUninstall) return;
+
+    setShowUninstallDialog(false);
+    setModelsBeingUninstalled(prev => new Set([...prev, modelToUninstall]));
+    
     try {
-      await uninstallModel(fullModelName);
+      await uninstallModel(modelToUninstall);
       
       // Show success message
-      alert(`Successfully uninstalled ${fullModelName}`);
+      setShowSuccessMessage(`Successfully uninstalled ${modelToUninstall}`);
+      setTimeout(() => setShowSuccessMessage(null), 3000);
       
     } catch (error) {
       console.error('Failed to uninstall model:', error);
       
       // Show error message
-      alert(`Failed to uninstall ${fullModelName}. Please try again.`);
+      setShowErrorMessage(`Failed to uninstall ${modelToUninstall}. Please try again.`);
+      setTimeout(() => setShowErrorMessage(null), 5000);
       
     } finally {
       setModelsBeingUninstalled(prev => {
         const newSet = new Set(prev);
-        newSet.delete(fullModelName);
+        newSet.delete(modelToUninstall);
         return newSet;
       });
+      setModelToUninstall(null);
     }
+  };
+
+  const handleCancelUninstall = () => {
+    setShowUninstallDialog(false);
+    setModelToUninstall(null);
   };
 
   const formatFileSize = (sizeStr: string) => {
@@ -187,6 +208,7 @@ function OllamaProviderPage() {
                                 disabled={isDownloading || isUninstalling}
                                 onClick={() => downloadModel(fullModelName)}
                                 className="h-8 px-3 cursor-pointer"
+                                title={isInstalled ? 'Model installed' : 'Download model'}
                               >
                                 {isDownloading ? (
                                   <div className="flex items-center gap-1">
@@ -196,12 +218,12 @@ function OllamaProviderPage() {
                                 ) : isInstalled ? (
                                   <div className="flex items-center gap-1">
                                     <Check className="h-3 w-3" />
-                                    <span className="text-xs">Installed</span>
+                                    <span className="text-xs hidden min-[1073px]:inline">Installed</span>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-1">
                                     <Download className="h-3 w-3" />
-                                    <span className="text-xs">Download</span>
+                                    <span className="text-xs hidden min-[1073px]:inline">Download</span>
                                   </div>
                                 )}
                               </Button>
@@ -211,18 +233,19 @@ function OllamaProviderPage() {
                                   size="sm"
                                   variant="destructive"
                                   disabled={isDownloading || isUninstalling}
-                                  onClick={() => handleUninstallModel(fullModelName)}
-                                  className="h-8 px-3 cursor-pointer"
+                                  onClick={() => handleUninstallClick(fullModelName)}
+                                  className="h-8 px-2 cursor-pointer xl:px-3"
+                                  title="Uninstall model"
                                 >
                                   {isUninstalling ? (
                                     <div className="flex items-center gap-1">
                                       <Loader2 className="h-3 w-3 animate-spin" />
-                                      <span className="text-xs">Removing...</span>
+                                      <span className="text-xs hidden xl:inline">Removing...</span>
                                     </div>
                                   ) : (
                                     <div className="flex items-center gap-1">
                                       <Trash2 className="h-3 w-3" />
-                                      <span className="text-xs">Uninstall</span>
+                                      <span className="text-xs hidden xl:inline">Uninstall</span>
                                     </div>
                                   )}
                                 </Button>
@@ -268,6 +291,53 @@ function OllamaProviderPage() {
           </div>
         )}
       </ScrollArea>
+
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4" />
+            {showSuccessMessage}
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {showErrorMessage && (
+        <div className="fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          <div className="flex items-center gap-2">
+            <Trash2 className="h-4 w-4" />
+            {showErrorMessage}
+          </div>
+        </div>
+      )}
+
+      {/* Uninstall Confirmation Dialog */}
+      {console.log('Dialog state:', { showUninstallDialog, modelToUninstall })}
+      <Dialog open={showUninstallDialog} onOpenChange={setShowUninstallDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Uninstall Model</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to uninstall <strong>{modelToUninstall}</strong>?
+              <br />
+              <br />
+              This will permanently remove the model from your system and free up disk space.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleCancelUninstall}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmUninstall}
+            >
+              Uninstall
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
