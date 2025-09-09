@@ -67,10 +67,10 @@ export const useToolsStore = create<ToolsStore>((set, get) => ({
         const { selectedToolIds: currentSelection } = get();
         // Only auto-select tools if no tools are currently selected
         const shouldAutoSelectAll = currentSelection.size === 0;
-        const selectedToolIds = shouldAutoSelectAll 
+        const selectedToolIds = shouldAutoSelectAll
           ? new Set(data.map((tool) => tool.id))
-          : new Set([...currentSelection].filter(id => data.some(tool => tool.id === id))); 
-        
+          : new Set([...currentSelection].filter((id) => data.some((tool) => tool.id === id)));
+
         set({
           availableTools: data,
           selectedToolIds,
@@ -87,10 +87,10 @@ export const useToolsStore = create<ToolsStore>((set, get) => ({
     const { selectedToolIds: currentSelection } = get();
     // Only auto-select tools if no tools are currently selected
     const shouldAutoSelectAll = currentSelection.size === 0;
-    const selectedToolIds = shouldAutoSelectAll 
+    const selectedToolIds = shouldAutoSelectAll
       ? new Set(tools.map((tool) => tool.id))
-      : new Set([...currentSelection].filter(id => tools.some(tool => tool.id === id))); 
-    
+      : new Set([...currentSelection].filter((id) => tools.some((tool) => tool.id === id)));
+
     set({
       availableTools: tools,
       selectedToolIds,
