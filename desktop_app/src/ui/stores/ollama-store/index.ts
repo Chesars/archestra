@@ -30,6 +30,7 @@ interface OllamaState {
 
 interface OllamaActions {
   downloadModel: (fullModelName: string) => Promise<void>;
+  uninstallModel: (fullModelName: string) => Promise<void>;
   fetchInstalledModels: () => Promise<void>;
   setSelectedModel: (model: string) => void;
 
@@ -137,6 +138,21 @@ export const useOllamaStore = create<OllamaStore>((set, get) => ({
           downloadProgress: newDownloadProgress,
         };
       });
+    }
+  },
+
+  uninstallModel: async (fullModelName: string) => {
+    try {
+      const { removeOllamaModel } = await import('@ui/lib/clients/archestra/api/gen');
+      await removeOllamaModel({ 
+        path: { modelName: fullModelName } 
+      });
+      
+      // Refresh the installed models list after successful uninstall
+      await get().fetchInstalledModels();
+    } catch (error) {
+      console.error('Failed to uninstall model:', error);
+      throw error;
     }
   },
 

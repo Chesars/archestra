@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Check, Clock, Cpu, Download, HardDrive, Loader2, Search, Type, Wrench } from 'lucide-react';
+import { Check, Clock, Cpu, Download, HardDrive, Loader2, Search, Trash2, Type, Wrench } from 'lucide-react';
 import { useState } from 'react';
 
 import { Badge } from '@ui/components/ui/badge';
@@ -19,8 +19,9 @@ function OllamaProviderPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLabel, setSelectedLabel] = useState<string>('all');
   const [toolCallsOnly, setToolCallsOnly] = useState(false);
+  const [modelsBeingUninstalled, setModelsBeingUninstalled] = useState<Set<string>>(new Set());
 
-  const { installedModels, downloadModel, downloadProgress, modelsBeingDownloaded } = useOllamaStore();
+  const { installedModels, downloadModel, uninstallModel, downloadProgress, modelsBeingDownloaded } = useOllamaStore();
 
   const availableModels = useAvailableModels();
   const allAvailableModelLabels = useAllAvailableModelLabels();
@@ -40,6 +41,38 @@ function OllamaProviderPage() {
 
   const isModelInstalled = (modelName: string) => {
     return installedModels.some((model) => model.name === modelName);
+  };
+
+  const handleUninstallModel = async (fullModelName: string) => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to uninstall ${fullModelName}?\n\nThis will permanently remove the model from your system.`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    setModelsBeingUninstalled(prev => new Set([...prev, fullModelName]));
+    try {
+      await uninstallModel(fullModelName);
+      
+      // Show success message
+      alert(`Successfully uninstalled ${fullModelName}`);
+      
+    } catch (error) {
+      console.error('Failed to uninstall model:', error);
+      
+      // Show error message
+      alert(`Failed to uninstall ${fullModelName}. Please try again.`);
+      
+    } finally {
+      setModelsBeingUninstalled(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fullModelName);
+        return newSet;
+      });
+    }
   };
 
   const formatFileSize = (sizeStr: string) => {
@@ -136,6 +169,7 @@ function OllamaProviderPage() {
                       const fullModelName = `${model.name}:${tag}`;
                       const progress = downloadProgress[fullModelName];
                       const isDownloading = modelsBeingDownloaded.has(fullModelName);
+                      const isUninstalling = modelsBeingUninstalled.has(fullModelName);
                       const isInstalled = isModelInstalled(fullModelName);
 
                       return (
@@ -146,30 +180,54 @@ function OllamaProviderPage() {
                               <span className="text-sm font-mono font-medium">{tag}</span>
                             </div>
 
-                            <Button
-                              size="sm"
-                              variant={isInstalled ? 'secondary' : 'default'}
-                              disabled={isDownloading}
-                              onClick={() => downloadModel(fullModelName)}
-                              className="h-8 px-3 cursor-pointer"
-                            >
-                              {isDownloading ? (
-                                <div className="flex items-center gap-1">
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                  <span className="text-xs">{progress ? `${progress}%` : '...'}</span>
-                                </div>
-                              ) : isInstalled ? (
-                                <div className="flex items-center gap-1">
-                                  <Check className="h-3 w-3" />
-                                  <span className="text-xs">Installed</span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  <Download className="h-3 w-3" />
-                                  <span className="text-xs">Download</span>
-                                </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant={isInstalled ? 'secondary' : 'default'}
+                                disabled={isDownloading || isUninstalling}
+                                onClick={() => downloadModel(fullModelName)}
+                                className="h-8 px-3 cursor-pointer"
+                              >
+                                {isDownloading ? (
+                                  <div className="flex items-center gap-1">
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    <span className="text-xs">{progress ? `${progress}%` : '...'}</span>
+                                  </div>
+                                ) : isInstalled ? (
+                                  <div className="flex items-center gap-1">
+                                    <Check className="h-3 w-3" />
+                                    <span className="text-xs">Installed</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <Download className="h-3 w-3" />
+                                    <span className="text-xs">Download</span>
+                                  </div>
+                                )}
+                              </Button>
+
+                              {isInstalled && (
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  disabled={isDownloading || isUninstalling}
+                                  onClick={() => handleUninstallModel(fullModelName)}
+                                  className="h-8 px-3 cursor-pointer"
+                                >
+                                  {isUninstalling ? (
+                                    <div className="flex items-center gap-1">
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      <span className="text-xs">Removing...</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <Trash2 className="h-3 w-3" />
+                                      <span className="text-xs">Uninstall</span>
+                                    </div>
+                                  )}
+                                </Button>
                               )}
-                            </Button>
+                            </div>
                           </div>
 
                           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
