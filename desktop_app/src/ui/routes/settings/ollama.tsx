@@ -40,15 +40,10 @@ function OllamaSettings() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="h-5 w-5" />
-              Ollama Local LLM
-            </CardTitle>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/llm-providers/ollama">Browse Ollama Library</Link>
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="h-5 w-5" />
+            Ollama Local LLM
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
