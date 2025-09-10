@@ -1,15 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Check, Clock, Cpu, Download, HardDrive, Loader2, Search, Type, Wrench } from 'lucide-react';
+import { Check, Clock, Cpu, Download, HardDrive, Loader2, Search, Type } from 'lucide-react';
 import { useState } from 'react';
 
 import { Badge } from '@ui/components/ui/badge';
 import { Button } from '@ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/ui/card';
-import { Checkbox } from '@ui/components/ui/checkbox';
 import { Input } from '@ui/components/ui/input';
 import { ScrollArea } from '@ui/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/components/ui/select';
-import { useAllAvailableModelLabels, useAvailableModels, useOllamaStore } from '@ui/stores';
+import { useAvailableModels, useOllamaStore } from '@ui/stores';
 
 export const Route = createFileRoute('/llm-providers/ollama')({
   component: OllamaProviderPage,
@@ -17,13 +16,12 @@ export const Route = createFileRoute('/llm-providers/ollama')({
 
 function OllamaProviderPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLabel, setSelectedLabel] = useState<string>('all');
-  const [toolCallsOnly, setToolCallsOnly] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>('all');
 
   const { installedModels, downloadModel, downloadProgress, modelsBeingDownloaded } = useOllamaStore();
 
   const availableModels = useAvailableModels();
-  const allAvailableModelLabels = useAllAvailableModelLabels();
+  const allModelNames = availableModels.map((m) => m.name);
 
   const filteredModels = availableModels.filter((model) => {
     const matchesSearch =
@@ -31,11 +29,9 @@ function OllamaProviderPage() {
       model.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       model.labels.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesLabel = selectedLabel === 'all' || model.labels.includes(selectedLabel);
+    const matchesSelectedModel = selectedModel === 'all' || model.name === selectedModel;
 
-    const matchesToolCalls = !toolCallsOnly || model.labels.includes('tools');
-
-    return matchesSearch && matchesLabel && matchesToolCalls;
+    return matchesSearch && matchesSelectedModel;
   });
 
   const isModelInstalled = (modelName: string) => {
@@ -73,30 +69,17 @@ function OllamaProviderPage() {
             />
           </div>
 
-          <div className="flex items-center space-x-3">
-            <Checkbox
-              id="tool-calls-filter"
-              checked={toolCallsOnly}
-              onCheckedChange={(checked) => setToolCallsOnly(checked === true)}
-            />
-            <label
-              htmlFor="tool-calls-filter"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1"
-            >
-              <Wrench className="h-4 w-4" />
-              Tool calling models
-            </label>
-          </div>
 
-          <Select value={selectedLabel} onValueChange={setSelectedLabel}>
+
+          <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All categories" />
+              <SelectValue placeholder="All models" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {allAvailableModelLabels.map((label) => (
-                <SelectItem key={label} value={label}>
-                  {label}
+              <SelectItem value="all">All models</SelectItem>
+              {allModelNames.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
                 </SelectItem>
               ))}
             </SelectContent>

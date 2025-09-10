@@ -1,8 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { Link, createFileRoute } from '@tanstack/react-router';
 import { AlertCircle, Bot, CheckCircle, Loader2 } from 'lucide-react';
 
 import DetailedProgressBar from '@ui/components/DetailedProgressBar';
 import { Alert, AlertDescription } from '@ui/components/ui/alert';
+import { Button } from '@ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/ui/card';
 import { useOllamaStore } from '@ui/stores/ollama-store';
 
@@ -39,10 +40,15 @@ function OllamaSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5" />
-            Ollama Local LLM
-          </CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              Ollama Local LLM
+            </CardTitle>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/llm-providers/ollama">Browse Ollama Library</Link>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
