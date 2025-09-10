@@ -1,9 +1,8 @@
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { AlertCircle, Bot, CheckCircle, Loader2 } from 'lucide-react';
 
 import DetailedProgressBar from '@ui/components/DetailedProgressBar';
 import { Alert, AlertDescription } from '@ui/components/ui/alert';
-import { Button } from '@ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/ui/card';
 import { useOllamaStore } from '@ui/stores/ollama-store';
 
