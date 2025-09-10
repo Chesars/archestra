@@ -51,7 +51,7 @@ function OllamaProviderPage() {
   };
 
   return (
-    <>
+    <div className="flex flex-col h-full min-h-0">
       <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-bold">Ollama Model Library</h1>
@@ -87,7 +87,7 @@ function OllamaProviderPage() {
         </div>
       </div>
 
-      <ScrollArea className="h-[600px]">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pb-4">
           {filteredModels.map((model) => (
             <Card key={model.name} className="hover:shadow-md transition-shadow">
@@ -193,6 +193,6 @@ function OllamaProviderPage() {
           </div>
         )}
       </ScrollArea>
-    </>
+    </div>
   );
 }
