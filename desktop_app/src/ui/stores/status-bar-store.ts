@@ -5,7 +5,7 @@ import websocketService from '@ui/lib/websocket';
 
 export interface StatusTask {
   id: string;
-  type: 'runtime' | 'server' | 'download' | 'model' | 'inference' | 'image';
+  type: 'runtime' | 'server' | 'download' | 'model' | 'inference' | 'image' | 'analysis';
   title: string;
   description: string;
   progress?: number;
@@ -48,7 +48,6 @@ export const useStatusBarStore = create<StatusBarState>()(
           // If task doesn't exist, create it
           newTasks.set(id, { id, ...updates, timestamp: Date.now() } as StatusTask);
         }
-        console.log('Updated tasks map:', Array.from(newTasks.values()));
         return { tasks: newTasks };
       });
     },
@@ -78,10 +77,10 @@ export const useStatusBarStore = create<StatusBarState>()(
       return tasks
         .filter((task) => task.status === 'active' || task.status === 'pending')
         .sort((a, b) => {
-          // Priority: runtime > server > download > model > inference
-          const typePriority = { runtime: 0, image: 1, server: 2, download: 3, model: 4, inference: 5 };
-          const aPriority = typePriority[a.type] ?? 6;
-          const bPriority = typePriority[b.type] ?? 6;
+          // Priority: runtime > image > server > analysis > download > model > inference
+          const typePriority = { runtime: 0, image: 1, server: 2, analysis: 3, download: 4, model: 5, inference: 6 };
+          const aPriority = typePriority[a.type] ?? 7;
+          const bPriority = typePriority[b.type] ?? 7;
           if (aPriority !== bPriority) return aPriority - bPriority;
 
           // Then by status (active before pending)
@@ -95,8 +94,6 @@ export const useStatusBarStore = create<StatusBarState>()(
     },
 
     setChatInference: (chatId, title, isActive = true) => {
-      console.log('setChatInference called:', chatId, title, isActive);
-
       if (isActive && chatId) {
         // Starting inference for a chat
         const taskId = `chat-${chatId}`;
@@ -108,7 +105,6 @@ export const useStatusBarStore = create<StatusBarState>()(
           status: 'active' as const,
           timestamp: Date.now(),
         };
-        console.log('Adding/updating chat task:', task);
         set({ activeInferenceId: chatId });
         get().updateTask(taskId, task);
       } else if (!isActive && chatId) {
@@ -116,7 +112,6 @@ export const useStatusBarStore = create<StatusBarState>()(
         const taskId = `chat-${chatId}`;
         const task = get().tasks.get(taskId);
         if (task && get().activeInferenceId === chatId) {
-          console.log('Marking chat task as completed');
           set({ activeInferenceId: null });
           get().updateTask(taskId, { status: 'completed' });
           setTimeout(() => get().removeTask(taskId), 2000);
@@ -130,7 +125,6 @@ export const useStatusBarStore = create<StatusBarState>()(
 const setupWebSocketSubscriptions = () => {
   websocketService.subscribe('sandbox-status-update', ({ payload }) => {
     const store = useStatusBarStore.getState();
-    console.log('Sandbox status update:', payload);
 
     // Handle overall sandbox status
     if (payload.status) {
@@ -339,6 +333,41 @@ const setupWebSocketSubscriptions = () => {
           status: 'error',
           error: payload.message || 'Download failed',
         });
+      }
+    }
+  });
+
+  // Subscribe to tool analysis events
+  websocketService.subscribe('tool-analysis-progress', ({ payload }) => {
+    const store = useStatusBarStore.getState();
+
+    if (payload.mcpServerId && payload.status) {
+      const taskId = `tool-analysis-${payload.mcpServerId}`;
+
+      if (payload.status === 'started' || payload.status === 'analyzing') {
+        store.updateTask(taskId, {
+          id: taskId,
+          type: 'analysis',
+          title: `Tool Analysis: ${payload.mcpServerId}`,
+          description: payload.message || 'Analyzing tools...',
+          progress: payload.progress || 0,
+          status: 'active',
+          timestamp: Date.now(),
+        });
+      } else if (payload.status === 'completed') {
+        store.updateTask(taskId, {
+          status: 'completed',
+          progress: 100,
+          description: payload.message || 'Analysis complete',
+        });
+        setTimeout(() => store.removeTask(taskId), 3000);
+      } else if (payload.status === 'error') {
+        store.updateTask(taskId, {
+          status: 'error',
+          error: payload.error || 'Analysis failed',
+          description: payload.message || 'Analysis failed',
+        });
+        setTimeout(() => store.removeTask(taskId), 10000);
       }
     }
   });

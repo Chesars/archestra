@@ -145,6 +145,19 @@
           },
           "requires_proxy": {
             "type": "boolean"
+          },
+          "provider_name": {
+            "type": "string"
+          },
+          "browser_auth": {
+            "type": "boolean"
+          },
+          "streamable_http_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "streamable_http_port": {
+            "type": "number"
           }
         },
         "required": [
@@ -165,15 +178,9 @@
           },
           "is_write": {
             "type": "boolean"
-          },
-          "idempotent": {
-            "type": "boolean"
-          },
-          "reversible": {
-            "type": "boolean"
           }
         },
-        "required": ["is_read", "is_write", "idempotent", "reversible"]
+        "required": ["is_read", "is_write"]
       },
       "ToolInput": {
         "type": "object",
@@ -257,28 +264,6 @@
               }
             ]
           },
-          "idempotent": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "nullable": true,
-                "enum": [null]
-              }
-            ]
-          },
-          "reversible": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "nullable": true,
-                "enum": [null]
-              }
-            ]
-          },
           "analyzed_at": {
             "anyOf": [
               {
@@ -305,8 +290,6 @@
           "input_schema",
           "is_read",
           "is_write",
-          "idempotent",
-          "reversible",
           "analyzed_at",
           "created_at",
           "updated_at"
@@ -530,6 +513,39 @@
             "properties": {
               "type": {
                 "type": "string",
+                "enum": ["chat-tools-updated"]
+              },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "chatId": {
+                    "type": "number"
+                  },
+                  "selectedTools": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  }
+                },
+                "required": ["chatId", "selectedTools"]
+              }
+            },
+            "required": ["type", "payload"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
                 "enum": ["sandbox-status-update"]
               },
               "payload": {
@@ -590,6 +606,156 @@
               }
             },
             "required": ["type", "payload"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["tools-updated"]
+              },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "mcpServerId": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": ["mcpServerId", "message"]
+              }
+            },
+            "required": ["type", "payload"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["tool-analysis-progress"]
+              },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "mcpServerId": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["started", "analyzing", "completed", "error"]
+                  },
+                  "progress": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "totalTools": {
+                    "type": "number"
+                  },
+                  "analyzedTools": {
+                    "type": "number"
+                  },
+                  "currentTool": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "error": {
+                    "type": "string"
+                  }
+                },
+                "required": ["status", "message"]
+              }
+            },
+            "required": ["type", "payload"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["chat-token-usage-updated"]
+              },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "chatId": {
+                    "type": "number"
+                  },
+                  "totalPromptTokens": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  "totalCompletionTokens": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  "totalTokens": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  "lastModel": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  "lastContextWindow": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  "contextUsagePercent": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "chatId",
+                  "totalPromptTokens",
+                  "totalCompletionTokens",
+                  "totalTokens",
+                  "lastModel",
+                  "lastContextWindow",
+                  "contextUsagePercent"
+                ]
+              }
+            },
+            "required": ["type", "payload"]
           }
         ]
       },
@@ -608,6 +774,106 @@
             "anyOf": [
               {
                 "type": "string"
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "selectedTools": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "array",
+                    "items": {}
+                  }
+                ]
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "totalPromptTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "totalCompletionTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "totalTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "lastModel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "lastContextWindow": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               },
               {
                 "nullable": true,
@@ -647,7 +913,20 @@
             }
           }
         },
-        "required": ["id", "sessionId", "title", "createdAt", "updatedAt", "messages"]
+        "required": [
+          "id",
+          "sessionId",
+          "title",
+          "selectedTools",
+          "totalPromptTokens",
+          "totalCompletionTokens",
+          "totalTokens",
+          "lastModel",
+          "lastContextWindow",
+          "createdAt",
+          "updatedAt",
+          "messages"
+        ]
       },
       "CloudProviderWithConfigInput": {
         "type": "object",
@@ -713,7 +992,7 @@
       },
       "SupportedCloudProvidersInput": {
         "type": "string",
-        "enum": ["anthropic", "openai", "deepseek", "gemini", "ollama"]
+        "enum": ["anthropic", "openai", "deepseek", "gemini"]
       },
       "SupportedCloudProviderModelInput": {
         "type": "object",
@@ -989,14 +1268,7 @@
             "additionalProperties": {
               "type": "string"
             }
-          },
-          "type": {
-            "type": "string"
-          },
-          "entry_point": {
-            "type": "string"
-          },
-          "mcp_config": {}
+          }
         },
         "additionalProperties": {}
       },
@@ -1089,6 +1361,15 @@
               }
             ]
           },
+          "oauthConfig": {
+            "anyOf": [
+              {},
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
           "status": {
             "type": "string",
             "enum": ["installing", "oauth_pending", "installed", "failed"]
@@ -1121,6 +1402,7 @@
           "oauthClientInfo",
           "oauthServerMetadata",
           "oauthResourceMetadata",
+          "oauthConfig",
           "status",
           "serverType",
           "remoteUrl",
@@ -1168,7 +1450,8 @@
           },
           "remote_url": {
             "type": "string"
-          }
+          },
+          "archestra_config": {}
         },
         "required": ["displayName", "serverConfig"]
       },
@@ -1254,33 +1537,9 @@
                     "enum": [null]
                   }
                 ]
-              },
-              "idempotent": {
-                "description": "Whether the tool is idempotent",
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "nullable": true,
-                    "enum": [null]
-                  }
-                ]
-              },
-              "reversible": {
-                "description": "Whether the tool actions are reversible",
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "nullable": true,
-                    "enum": [null]
-                  }
-                ]
               }
             },
-            "required": ["status", "error", "is_read", "is_write", "idempotent", "reversible"]
+            "required": ["status", "error", "is_read", "is_write"]
           }
         },
         "required": ["id", "name", "mcpServerId", "mcpServerName", "analysis"]
@@ -1419,10 +1678,24 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "uniqueId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
           "hasCompletedOnboarding": {
             "type": "boolean"
           },
           "collectTelemetryData": {
+            "type": "boolean"
+          },
+          "collectAnalyticsData": {
             "type": "boolean"
           },
           "createdAt": {
@@ -1432,7 +1705,15 @@
             "type": "string"
           }
         },
-        "required": ["id", "hasCompletedOnboarding", "collectTelemetryData", "createdAt", "updatedAt"]
+        "required": [
+          "id",
+          "uniqueId",
+          "hasCompletedOnboarding",
+          "collectTelemetryData",
+          "collectAnalyticsData",
+          "createdAt",
+          "updatedAt"
+        ]
       },
       "OAuthTokens": {
         "type": "object",
@@ -1573,6 +1854,19 @@
           },
           "requires_proxy": {
             "type": "boolean"
+          },
+          "provider_name": {
+            "type": "string"
+          },
+          "browser_auth": {
+            "type": "boolean"
+          },
+          "streamable_http_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "streamable_http_port": {
+            "type": "number"
           }
         },
         "required": [
@@ -1594,15 +1888,9 @@
           },
           "is_write": {
             "type": "boolean"
-          },
-          "idempotent": {
-            "type": "boolean"
-          },
-          "reversible": {
-            "type": "boolean"
           }
         },
-        "required": ["is_read", "is_write", "idempotent", "reversible"],
+        "required": ["is_read", "is_write"],
         "additionalProperties": false
       },
       "Tool": {
@@ -1687,28 +1975,6 @@
               }
             ]
           },
-          "idempotent": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "nullable": true,
-                "enum": [null]
-              }
-            ]
-          },
-          "reversible": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "nullable": true,
-                "enum": [null]
-              }
-            ]
-          },
           "analyzed_at": {
             "anyOf": [
               {
@@ -1735,8 +2001,6 @@
           "input_schema",
           "is_read",
           "is_write",
-          "idempotent",
-          "reversible",
           "analyzed_at",
           "created_at",
           "updated_at"
@@ -1968,6 +2232,41 @@
             "properties": {
               "type": {
                 "type": "string",
+                "enum": ["chat-tools-updated"]
+              },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "chatId": {
+                    "type": "number"
+                  },
+                  "selectedTools": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  }
+                },
+                "required": ["chatId", "selectedTools"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["type", "payload"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
                 "enum": ["sandbox-status-update"]
               },
               "payload": {
@@ -2033,6 +2332,162 @@
             },
             "required": ["type", "payload"],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["tools-updated"]
+              },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "mcpServerId": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": ["mcpServerId", "message"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["type", "payload"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["tool-analysis-progress"]
+              },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "mcpServerId": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["started", "analyzing", "completed", "error"]
+                  },
+                  "progress": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "totalTools": {
+                    "type": "number"
+                  },
+                  "analyzedTools": {
+                    "type": "number"
+                  },
+                  "currentTool": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "error": {
+                    "type": "string"
+                  }
+                },
+                "required": ["status", "message"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["type", "payload"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["chat-token-usage-updated"]
+              },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "chatId": {
+                    "type": "number"
+                  },
+                  "totalPromptTokens": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  "totalCompletionTokens": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  "totalTokens": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  "lastModel": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  "lastContextWindow": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  "contextUsagePercent": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "chatId",
+                  "totalPromptTokens",
+                  "totalCompletionTokens",
+                  "totalTokens",
+                  "lastModel",
+                  "lastContextWindow",
+                  "contextUsagePercent"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": ["type", "payload"],
+            "additionalProperties": false
           }
         ]
       },
@@ -2051,6 +2506,106 @@
             "anyOf": [
               {
                 "type": "string"
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "selectedTools": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "nullable": true,
+                        "enum": [null]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "array",
+                    "items": {}
+                  }
+                ]
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "totalPromptTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "totalCompletionTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "totalTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "lastModel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
+          "lastContextWindow": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               },
               {
                 "nullable": true,
@@ -2091,7 +2646,20 @@
             }
           }
         },
-        "required": ["id", "sessionId", "title", "createdAt", "updatedAt", "messages"],
+        "required": [
+          "id",
+          "sessionId",
+          "title",
+          "selectedTools",
+          "totalPromptTokens",
+          "totalCompletionTokens",
+          "totalTokens",
+          "lastModel",
+          "lastContextWindow",
+          "createdAt",
+          "updatedAt",
+          "messages"
+        ],
         "additionalProperties": false
       },
       "CloudProviderWithConfig": {
@@ -2159,7 +2727,7 @@
       },
       "SupportedCloudProviders": {
         "type": "string",
-        "enum": ["anthropic", "openai", "deepseek", "gemini", "ollama"]
+        "enum": ["anthropic", "openai", "deepseek", "gemini"]
       },
       "SupportedCloudProviderModel": {
         "type": "object",
@@ -2440,14 +3008,7 @@
             "additionalProperties": {
               "type": "string"
             }
-          },
-          "type": {
-            "type": "string"
-          },
-          "entry_point": {
-            "type": "string"
-          },
-          "mcp_config": {}
+          }
         },
         "additionalProperties": {}
       },
@@ -2540,6 +3101,15 @@
               }
             ]
           },
+          "oauthConfig": {
+            "anyOf": [
+              {},
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
           "status": {
             "type": "string",
             "enum": ["installing", "oauth_pending", "installed", "failed"]
@@ -2572,6 +3142,7 @@
           "oauthClientInfo",
           "oauthServerMetadata",
           "oauthResourceMetadata",
+          "oauthConfig",
           "status",
           "serverType",
           "remoteUrl",
@@ -2620,7 +3191,8 @@
           },
           "remote_url": {
             "type": "string"
-          }
+          },
+          "archestra_config": {}
         },
         "required": ["displayName", "serverConfig"],
         "additionalProperties": false
@@ -2708,33 +3280,9 @@
                     "enum": [null]
                   }
                 ]
-              },
-              "idempotent": {
-                "description": "Whether the tool is idempotent",
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "nullable": true,
-                    "enum": [null]
-                  }
-                ]
-              },
-              "reversible": {
-                "description": "Whether the tool actions are reversible",
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "nullable": true,
-                    "enum": [null]
-                  }
-                ]
               }
             },
-            "required": ["status", "error", "is_read", "is_write", "idempotent", "reversible"],
+            "required": ["status", "error", "is_read", "is_write"],
             "additionalProperties": false
           }
         },
@@ -2884,10 +3432,24 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "uniqueId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "nullable": true,
+                "enum": [null]
+              }
+            ]
+          },
           "hasCompletedOnboarding": {
             "type": "boolean"
           },
           "collectTelemetryData": {
+            "type": "boolean"
+          },
+          "collectAnalyticsData": {
             "type": "boolean"
           },
           "createdAt": {
@@ -2897,12 +3459,104 @@
             "type": "string"
           }
         },
-        "required": ["id", "hasCompletedOnboarding", "collectTelemetryData", "createdAt", "updatedAt"],
+        "required": [
+          "id",
+          "uniqueId",
+          "hasCompletedOnboarding",
+          "collectTelemetryData",
+          "collectAnalyticsData",
+          "createdAt",
+          "updatedAt"
+        ],
         "additionalProperties": false
       }
     }
   },
   "paths": {
+    "/api/oauth/store-code": {
+      "post": {
+        "operationId": "storeOAuthCode",
+        "tags": ["OAuth"],
+        "description": "Store OAuth authorization code from deep link callback (internal API)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "code": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["state", "code"]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["success", "message"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/chat": {
       "get": {
         "operationId": "getChats",
@@ -3075,6 +3729,487 @@
             "in": "path",
             "name": "id",
             "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/{id}/tools": {
+      "get": {
+        "operationId": "getChatSelectedTools",
+        "tags": ["Chat"],
+        "description": "Get selected tools for a specific chat",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "selectedTools": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "nullable": true,
+                          "enum": [null]
+                        }
+                      ]
+                    },
+                    "availableTools": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AvailableTool"
+                      }
+                    }
+                  },
+                  "required": ["selectedTools", "availableTools"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/{id}/tools/select": {
+      "post": {
+        "operationId": "selectChatTools",
+        "tags": ["Chat"],
+        "description": "Add tools to chat selection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "toolIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": ["toolIds"]
+              }
+            }
+          },
+          "required": true
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "selectedTools": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["selectedTools"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/{id}/tools/deselect": {
+      "post": {
+        "operationId": "deselectChatTools",
+        "tags": ["Chat"],
+        "description": "Remove tools from chat selection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "toolIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": ["toolIds"]
+              }
+            }
+          },
+          "required": true
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "selectedTools": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["selectedTools"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/{id}/tools/select-all": {
+      "post": {
+        "operationId": "selectAllChatTools",
+        "tags": ["Chat"],
+        "description": "Select all available tools for this chat",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/{id}/tools/deselect-all": {
+      "post": {
+        "operationId": "deselectAllChatTools",
+        "tags": ["Chat"],
+        "description": "Clear all tool selections for this chat",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/{id}/tools/available": {
+      "get": {
+        "operationId": "getChatAvailableTools",
+        "tags": ["Chat"],
+        "description": "List all tools available for selection",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AvailableTool"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/message/{id}": {
+      "put": {
+        "operationId": "updateChatMessage",
+        "tags": ["Chat"],
+        "description": "Update a specific message",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {}
+                },
+                "required": ["content"]
+              }
+            }
+          },
+          "required": true
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "The content ID (from the ai SDK) of the message to update (not the database pk ID)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["success"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteChatMessage",
+        "tags": ["Chat"],
+        "description": "Delete a specific message",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "The content ID (from the ai SDK) of the message to update (not the database pk ID)"
           }
         ],
         "responses": {
@@ -3441,9 +4576,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "serverId": {
-                    "type": "string"
-                  },
                   "code": {
                     "type": "string"
                   },
@@ -3451,7 +4583,7 @@
                     "type": "string"
                   }
                 },
-                "required": ["serverId", "code", "state"]
+                "required": ["code", "state"]
               }
             }
           },
@@ -4173,6 +5305,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "message"],
+                  "additionalProperties": false
+                }
+              }
+            }
           }
         }
       },
@@ -4252,56 +5404,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/oauth/store-code": {
-      "post": {
-        "operationId": "storeOAuthCode",
-        "tags": ["OAuth"],
-        "description": "Store OAuth authorization code from deep link callback (internal API)",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "code": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": ["state", "code"]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["success", "message"],
-                  "additionalProperties": false
-                }
-              }
-            }
           },
           "400": {
             "description": "Default Response",
@@ -4312,26 +5414,12 @@
                   "properties": {
                     "error": {
                       "type": "string"
-                    }
-                  },
-                  "required": ["error"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
+                    },
+                    "message": {
                       "type": "string"
                     }
                   },
-                  "required": ["error"],
+                  "required": ["error", "message"],
                   "additionalProperties": false
                 }
               }
@@ -4501,6 +5589,15 @@
         }
       }
     },
+    "/api/system/backend-logs": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/user": {
       "get": {
         "operationId": "getUser",
@@ -4533,6 +5630,9 @@
                     "type": "boolean"
                   },
                   "collectTelemetryData": {
+                    "type": "boolean"
+                  },
+                  "collectAnalyticsData": {
                     "type": "boolean"
                   }
                 }

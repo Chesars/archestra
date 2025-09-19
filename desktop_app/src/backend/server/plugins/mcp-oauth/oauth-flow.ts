@@ -5,9 +5,11 @@
  * Handles OAuth authentication flow using @modelcontextprotocol/sdk/client/auth.js
  */
 import { auth } from '@modelcontextprotocol/sdk/client/auth.js';
+import { discoverAuthorizationServerMetadata } from '@modelcontextprotocol/sdk/client/auth.js';
 import { OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
 
 import { type OAuthServerConfig } from '@backend/schemas/oauth-config';
+import OAuthProxyClient from '@backend/services/oauth-proxy-client';
 import log from '@backend/utils/logger';
 
 import { McpOAuthProvider } from './provider';
@@ -51,11 +53,7 @@ export async function performOAuth(provider: McpOAuthProvider, config: OAuthServ
         });
 
         // Use OAuth proxy client for token exchange instead of MCP SDK
-        const { oauthProxyClient } = await import('@backend/services/oauth-proxy-client');
-
         // Discover the token endpoint from OAuth server metadata
-        const { discoverAuthorizationServerMetadata } = await import('@modelcontextprotocol/sdk/client/auth.js');
-
         let tokenEndpoint: string;
         try {
           // Try to discover token endpoint from well-known URL
@@ -71,7 +69,7 @@ export async function performOAuth(provider: McpOAuthProvider, config: OAuthServ
 
         // Exchange authorization code for tokens via OAuth proxy
         // Pass MCP server URL for discovery, not the token endpoint
-        const tokens = await oauthProxyClient.exchangeTokens(
+        const tokens = await OAuthProxyClient.exchangeTokens(
           provider.getServerId(),
           config.server_url, // Pass server URL for OAuth discovery
           {

@@ -10,6 +10,7 @@ import {
 import { ArchestraOllamaClient } from '@ui/lib/clients/ollama';
 import { OllamaLocalStorage } from '@ui/lib/localStorage';
 import websocketService from '@ui/lib/websocket';
+import { useStatusBarStore } from '@ui/stores/status-bar-store';
 
 import { AVAILABLE_MODELS } from './available_models';
 
@@ -20,7 +21,7 @@ interface OllamaState {
   downloadProgress: Record<string, number>;
   loadingInstalledModels: boolean;
   loadingInstalledModelsError: Error | null;
-  selectedModel: string;
+  selectedModel: string | undefined;
   modelsBeingDownloaded: Set<string>;
 
   requiredModelsStatus: OllamaRequiredModelStatus[];
@@ -45,7 +46,7 @@ export const useOllamaStore = create<OllamaStore>((set, get) => ({
   downloadProgress: {},
   loadingInstalledModels: false,
   loadingInstalledModelsError: null,
-  selectedModel: OllamaLocalStorage.getSelectedModel() || '',
+  selectedModel: OllamaLocalStorage.getSelectedModel() || undefined,
   modelsBeingDownloaded: new Set(),
   requiredModelsStatus: [],
   requiredModelsDownloadProgress: {},
@@ -63,10 +64,11 @@ export const useOllamaStore = create<OllamaStore>((set, get) => ({
         const { models } = await ollamaClient.list();
         set({ installedModels: models });
 
-        const firstInstalledModel = models[0];
-        if (!selectedModel && firstInstalledModel && firstInstalledModel.model) {
-          get().setSelectedModel(firstInstalledModel.model);
-        }
+        // Don't auto-select a model - let user choose
+        // const firstInstalledModel = models[0];
+        // if (!selectedModel && firstInstalledModel && firstInstalledModel.model) {
+        //   get().setSelectedModel(firstInstalledModel.model);
+        // }
 
         return true;
       } catch (error) {
@@ -147,7 +149,6 @@ export const useOllamaStore = create<OllamaStore>((set, get) => ({
     const previousModel = get().selectedModel;
 
     // Track model switching in StatusBar
-    const { useStatusBarStore } = await import('@ui/stores/status-bar-store');
     const statusBarStore = useStatusBarStore.getState();
 
     if (previousModel && previousModel !== model) {
@@ -245,6 +246,15 @@ export const useOllamaStore = create<OllamaStore>((set, get) => ({
           }
         : state.downloadProgress,
     }));
+
+    // When download is completed, refresh the installed models list
+    if (progress.status === 'completed') {
+      // Add a small delay to ensure Ollama has registered the model
+      setTimeout(() => {
+        get().fetchInstalledModels();
+        get().fetchRequiredModelsStatus();
+      }, 500);
+    }
   },
 }));
 

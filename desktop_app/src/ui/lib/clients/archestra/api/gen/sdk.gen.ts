@@ -17,22 +17,38 @@ import type {
   DeleteAllMemoriesResponses,
   DeleteChatData,
   DeleteChatErrors,
+  DeleteChatMessageData,
+  DeleteChatMessageErrors,
+  DeleteChatMessageResponses,
   DeleteChatResponses,
   DeleteCloudProviderData,
   DeleteCloudProviderResponses,
   DeleteMemoryData,
   DeleteMemoryResponses,
+  DeselectAllChatToolsData,
+  DeselectAllChatToolsErrors,
+  DeselectAllChatToolsResponses,
+  DeselectChatToolsData,
+  DeselectChatToolsErrors,
+  DeselectChatToolsResponses,
   DisconnectExternalMcpClientData,
   DisconnectExternalMcpClientResponses,
   GetAllMemoriesData,
   GetAllMemoriesResponses,
+  GetApiSystemBackendLogsData,
+  GetApiSystemBackendLogsResponses,
   GetAvailableCloudProvidersData,
   GetAvailableCloudProvidersResponses,
   GetAvailableToolsData,
   GetAvailableToolsResponses,
+  GetChatAvailableToolsData,
+  GetChatAvailableToolsResponses,
   GetChatByIdData,
   GetChatByIdErrors,
   GetChatByIdResponses,
+  GetChatSelectedToolsData,
+  GetChatSelectedToolsErrors,
+  GetChatSelectedToolsResponses,
   GetChatsData,
   GetChatsResponses,
   GetCloudProviderModelsData,
@@ -76,7 +92,14 @@ import type {
   RestartSandboxData,
   RestartSandboxErrors,
   RestartSandboxResponses,
+  SelectAllChatToolsData,
+  SelectAllChatToolsErrors,
+  SelectAllChatToolsResponses,
+  SelectChatToolsData,
+  SelectChatToolsErrors,
+  SelectChatToolsResponses,
   SetMemoryData,
+  SetMemoryErrors,
   SetMemoryResponses,
   StartGenericOAuthData,
   StartGenericOAuthErrors,
@@ -88,8 +111,12 @@ import type {
   UninstallMcpServerResponses,
   UpdateChatData,
   UpdateChatErrors,
+  UpdateChatMessageData,
+  UpdateChatMessageErrors,
+  UpdateChatMessageResponses,
   UpdateChatResponses,
   UpdateMemoryData,
+  UpdateMemoryErrors,
   UpdateMemoryResponses,
   UpdateUserData,
   UpdateUserResponses,
@@ -110,6 +137,22 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
    * used to access values that aren't defined as part of the SDK function.
    */
   meta?: Record<string, unknown>;
+};
+
+/**
+ * Store OAuth authorization code from deep link callback (internal API)
+ */
+export const storeOAuthCode = <ThrowOnError extends boolean = false>(
+  options: Options<StoreOAuthCodeData, ThrowOnError>
+) => {
+  return (options.client ?? _heyApiClient).post<StoreOAuthCodeResponses, StoreOAuthCodeErrors, ThrowOnError>({
+    url: '/api/oauth/store-code',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 };
 
 /**
@@ -162,6 +205,120 @@ export const getChatById = <ThrowOnError extends boolean = false>(options: Optio
 export const updateChat = <ThrowOnError extends boolean = false>(options: Options<UpdateChatData, ThrowOnError>) => {
   return (options.client ?? _heyApiClient).patch<UpdateChatResponses, UpdateChatErrors, ThrowOnError>({
     url: '/api/chat/{id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get selected tools for a specific chat
+ */
+export const getChatSelectedTools = <ThrowOnError extends boolean = false>(
+  options: Options<GetChatSelectedToolsData, ThrowOnError>
+) => {
+  return (options.client ?? _heyApiClient).get<GetChatSelectedToolsResponses, GetChatSelectedToolsErrors, ThrowOnError>(
+    {
+      url: '/api/chat/{id}/tools',
+      ...options,
+    }
+  );
+};
+
+/**
+ * Add tools to chat selection
+ */
+export const selectChatTools = <ThrowOnError extends boolean = false>(
+  options: Options<SelectChatToolsData, ThrowOnError>
+) => {
+  return (options.client ?? _heyApiClient).post<SelectChatToolsResponses, SelectChatToolsErrors, ThrowOnError>({
+    url: '/api/chat/{id}/tools/select',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Remove tools from chat selection
+ */
+export const deselectChatTools = <ThrowOnError extends boolean = false>(
+  options: Options<DeselectChatToolsData, ThrowOnError>
+) => {
+  return (options.client ?? _heyApiClient).post<DeselectChatToolsResponses, DeselectChatToolsErrors, ThrowOnError>({
+    url: '/api/chat/{id}/tools/deselect',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Select all available tools for this chat
+ */
+export const selectAllChatTools = <ThrowOnError extends boolean = false>(
+  options: Options<SelectAllChatToolsData, ThrowOnError>
+) => {
+  return (options.client ?? _heyApiClient).post<SelectAllChatToolsResponses, SelectAllChatToolsErrors, ThrowOnError>({
+    url: '/api/chat/{id}/tools/select-all',
+    ...options,
+  });
+};
+
+/**
+ * Clear all tool selections for this chat
+ */
+export const deselectAllChatTools = <ThrowOnError extends boolean = false>(
+  options: Options<DeselectAllChatToolsData, ThrowOnError>
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeselectAllChatToolsResponses,
+    DeselectAllChatToolsErrors,
+    ThrowOnError
+  >({
+    url: '/api/chat/{id}/tools/deselect-all',
+    ...options,
+  });
+};
+
+/**
+ * List all tools available for selection
+ */
+export const getChatAvailableTools = <ThrowOnError extends boolean = false>(
+  options: Options<GetChatAvailableToolsData, ThrowOnError>
+) => {
+  return (options.client ?? _heyApiClient).get<GetChatAvailableToolsResponses, unknown, ThrowOnError>({
+    url: '/api/chat/{id}/tools/available',
+    ...options,
+  });
+};
+
+/**
+ * Delete a specific message
+ */
+export const deleteChatMessage = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteChatMessageData, ThrowOnError>
+) => {
+  return (options.client ?? _heyApiClient).delete<DeleteChatMessageResponses, DeleteChatMessageErrors, ThrowOnError>({
+    url: '/api/message/{id}',
+    ...options,
+  });
+};
+
+/**
+ * Update a specific message
+ */
+export const updateChatMessage = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateChatMessageData, ThrowOnError>
+) => {
+  return (options.client ?? _heyApiClient).put<UpdateChatMessageResponses, UpdateChatMessageErrors, ThrowOnError>({
+    url: '/api/message/{id}',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -500,7 +657,7 @@ export const getMemoryByName = <ThrowOnError extends boolean = false>(
  * Create or update a memory entry
  */
 export const setMemory = <ThrowOnError extends boolean = false>(options: Options<SetMemoryData, ThrowOnError>) => {
-  return (options.client ?? _heyApiClient).put<SetMemoryResponses, unknown, ThrowOnError>({
+  return (options.client ?? _heyApiClient).put<SetMemoryResponses, SetMemoryErrors, ThrowOnError>({
     url: '/api/memories/{name}',
     ...options,
     headers: {
@@ -526,28 +683,12 @@ export const getMemory = <ThrowOnError extends boolean = false>(options?: Option
 export const updateMemory = <ThrowOnError extends boolean = false>(
   options?: Options<UpdateMemoryData, ThrowOnError>
 ) => {
-  return (options?.client ?? _heyApiClient).put<UpdateMemoryResponses, unknown, ThrowOnError>({
+  return (options?.client ?? _heyApiClient).put<UpdateMemoryResponses, UpdateMemoryErrors, ThrowOnError>({
     url: '/api/memory',
     ...options,
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,
-    },
-  });
-};
-
-/**
- * Store OAuth authorization code from deep link callback (internal API)
- */
-export const storeOAuthCode = <ThrowOnError extends boolean = false>(
-  options: Options<StoreOAuthCodeData, ThrowOnError>
-) => {
-  return (options.client ?? _heyApiClient).post<StoreOAuthCodeResponses, StoreOAuthCodeErrors, ThrowOnError>({
-    url: '/api/oauth/store-code',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
     },
   });
 };
@@ -597,6 +738,15 @@ export const resetSandbox = <ThrowOnError extends boolean = false>(
 ) => {
   return (options?.client ?? _heyApiClient).post<ResetSandboxResponses, ResetSandboxErrors, ThrowOnError>({
     url: '/api/sandbox/reset',
+    ...options,
+  });
+};
+
+export const getApiSystemBackendLogs = <ThrowOnError extends boolean = false>(
+  options?: Options<GetApiSystemBackendLogsData, ThrowOnError>
+) => {
+  return (options?.client ?? _heyApiClient).get<GetApiSystemBackendLogsResponses, unknown, ThrowOnError>({
+    url: '/api/system/backend-logs',
     ...options,
   });
 };

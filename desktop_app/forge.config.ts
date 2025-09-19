@@ -1,4 +1,5 @@
 import { MakerDeb } from '@electron-forge/maker-deb';
+import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerRpm } from '@electron-forge/maker-rpm';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
@@ -6,7 +7,6 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { PublisherGitHubConfig } from '@electron-forge/publisher-github';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
-import { execSync } from 'child_process';
 import fs from 'fs-extra';
 import path from 'path';
 
@@ -21,7 +21,7 @@ const ARCHITECTURE = process.arch === 'x64' ? 'x86_64' : process.arch;
 const IS_MAC = PLATFORM === 'darwin';
 const IS_WINDOWS = PLATFORM === 'win32';
 
-const BINARIES_DIRECTORY = `./resources/bin/${IS_MAC ? 'mac' : IS_WINDOWS ? 'windows' : 'linux'}/${ARCHITECTURE}`;
+const BINARIES_DIRECTORY = `./resources/bin/${IS_MAC ? 'mac' : IS_WINDOWS ? 'win' : 'linux'}/${ARCHITECTURE}`;
 
 const binaryFilePaths: string[] = [];
 for (const binaryFileName of fs.readdirSync(BINARIES_DIRECTORY)) {
@@ -40,9 +40,10 @@ const forgeConfig: ForgeConfig = {
      */
     asar: true,
     extraResource: binaryFilePaths,
-    icon: './icons/icon',
+    icon: './assets/icons/icon',
     name: productName,
     appBundleId,
+    appCopyright: `Copyright © ${new Date().getFullYear()} Archestra Limited`,
 
     /**
      * Only enable signing/notarization in CI or when explicitly requested
@@ -114,25 +115,6 @@ const forgeConfig: ForgeConfig = {
    */
   rebuildConfig: {},
   hooks: {
-    // Sign bundled binaries before packaging
-    async prePackage(_forgeConfig) {
-      if (IS_MAC && process.env.APPLE_TEAM_ID) {
-        console.log('Signing bundled binaries...');
-
-        const signingIdentityName = `Developer ID Application: Archestra Limited (${process.env.APPLE_TEAM_ID})`;
-
-        for (const binaryFilePath of binaryFilePaths) {
-          try {
-            console.log(`Signing ${binaryFilePath}...`);
-            execSync(`codesign --force --verbose --sign "${signingIdentityName}" "${binaryFilePath}"`, {
-              stdio: 'inherit',
-            });
-          } catch (error) {
-            console.warn(`Warning: Could not sign ${binaryFilePath}:`, error);
-          }
-        }
-      }
-    },
     // The call to this hook is mandatory for better-sqlite3 to work once the app built
     async packageAfterCopy(_forgeConfig, buildPath) {
       const requiredNativePackages = ['better-sqlite3', 'bindings', 'file-uri-to-path'];
@@ -182,7 +164,8 @@ const forgeConfig: ForgeConfig = {
     //   setupIcon: './icons/icon.ico',
     // }),
     /**
-     * ZIP for macOS and Windows
+     * NOTE: zip assets are required for update-electron-app (ie. auto updater) to work properly
+     * see https://github.com/electron/update-electron-app
      */
     new MakerZIP({}, ['darwin', 'win32']),
     new MakerRpm({
@@ -190,6 +173,7 @@ const forgeConfig: ForgeConfig = {
         name: productName,
         productName,
         description,
+        icon: './assets/icons/icon.png',
       },
     }),
     new MakerDeb({
@@ -197,7 +181,46 @@ const forgeConfig: ForgeConfig = {
         name: productName,
         productName,
         description,
+        icon: './assets/icons/icon.png',
       },
+    }),
+    /**
+     * See the following resources for configuration documentation:
+     *
+     * https://www.npmjs.com/package/@electron-forge/maker-dmg
+     * https://github.com/LinusU/node-appdmg
+     */
+    new MakerDMG({
+      /**
+       * re: background -- from the maker-dmg docs:
+       *
+       * Path to the background image for the DMG window. Image should be of size 658x498.
+       *
+       * If you need to want to add a second Retina-compatible size, add a separate `@2x` image.
+       * For example, if your image is called `background.png`, create a `background@2x.png` that is
+       * double the size.
+       */
+      background: './assets/dmg-background.png',
+      format: 'ULFO', // ULFO = lzfse-compressed image (macOS 10.11+ only)
+      icon: './assets/icons/icon.icns', // this is the volume icon to replace the default Electron icon
+      title: 'Archestra',
+      contents: [
+        {
+          x: 210,
+          y: 245,
+          type: 'file',
+          /**
+           * path was a bit of a pain here to configure, see https://stackoverflow.com/a/68840039
+           */
+          path: `${process.cwd()}/out/Archestra-darwin-${process.arch}/Archestra.app`,
+        },
+        {
+          x: 470,
+          y: 245,
+          type: 'link',
+          path: '/Applications',
+        },
+      ],
     }),
   ],
   plugins: [
@@ -244,19 +267,8 @@ const forgeConfig: ForgeConfig = {
           owner: github.owner,
           name: github.repoName,
         },
-
-        /**
-         * The desktop app release-please generated GitHub releases have a tag prefix of `desktop_app-v<version>`,
-         * so we need to match that here.
-         *
-         * Otherwise, the electron-forge publisher will try to create a release with a tag of `v<version>` and the
-         * build assets will not get attached to the proper GitHub Release.
-         *
-         * The alternative is to set "include-component-in-tag" to "false" in the release-please config
-         * (specifically for the "desktop_app" 'component') but there is a bug that we ran into with release-please
-         * that was causing issues (https://github.com/googleapis/release-please/issues/2214)
-         */
-        tagPrefix: 'desktop_app-v',
+        // default tag prefix is "v" which aligns with release-please's default tag prefix
+        // tagPrefix: 'desktop_app-v',
         prerelease: true,
         draft: false,
       } as PublisherGitHubConfig,

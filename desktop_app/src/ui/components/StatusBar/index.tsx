@@ -1,4 +1,4 @@
-import { ChevronDown, Container, Cpu, Download, Loader2, Server, Sparkles } from 'lucide-react';
+import { ChevronDown, Container, Cpu, Download, FlaskConical, Loader2, Server, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@ui/components/ui/collapsible';
@@ -13,6 +13,7 @@ const taskIcons = {
   model: <Cpu className="h-3 w-3" />,
   inference: <Sparkles className="h-3 w-3" />,
   image: <Download className="h-3 w-3" />,
+  analysis: <FlaskConical className="h-3 w-3" />,
 };
 
 export default function StatusBar() {
@@ -22,8 +23,6 @@ export default function StatusBar() {
 
   const activeTasks = getActiveTasks();
   const hasActiveTasks = activeTasks.length > 0;
-
-  console.log('StatusBar - Active tasks:', activeTasks);
 
   // Calculate joint progress
   const totalProgress = activeTasks.reduce((sum, task) => {
