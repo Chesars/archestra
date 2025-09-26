@@ -6,16 +6,17 @@ import { convertToModelMessages, stepCountIs, streamText } from 'ai';
 import { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { createOllama } from 'ollama-ai-provider-v2';
 
-import { type McpTools } from '@backend/archestraMcp';
-import ArchestraMcpContext from '@backend/archestraMcp/context';
+import ollamaClient from '@backend/clients/ollama';
 import config from '@backend/config';
-import { getModelContextWindow } from '@backend/llms/modelContextWindows';
-import toolAggregator from '@backend/llms/toolAggregator';
 import Chat from '@backend/models/chat';
 import CloudProviderModel from '@backend/models/cloudProvider';
-import ollamaClient from '@backend/ollama/client';
+import { archestraMcpContext } from '@backend/server/plugins/mcp';
+import toolService from '@backend/services/tool';
+import { type McpTools } from '@backend/types';
+import { ARCHESTRA_MCP_TOOLS } from '@constants';
 
 import sharedConfig from '../../../../config';
+import { getModelContextWindow } from './modelContextWindows';
 
 interface StreamRequestBody {
   model: string;
@@ -50,13 +51,22 @@ const createModelInstance = async (model: string, provider?: string) => {
     openai: () => createOpenAI({ apiKey, baseURL: baseUrl, headers }),
     deepseek: () => createDeepSeek({ apiKey, baseURL: baseUrl || 'https://api.deepseek.com/v1' }),
     gemini: () => createGoogleGenerativeAI({ apiKey, baseURL: baseUrl }),
+    archestra: () =>
+      createGoogleGenerativeAI({
+        apiKey: 'populated_by_proxy',
+        baseURL: baseUrl,
+        headers: { Authorization: `Bearer ${apiKey}` },
+      }),
     ollama: () => createOllama({ baseURL: baseUrl }),
   };
 
   const createClient = clientFactories[type] || (() => createOpenAI({ apiKey, baseURL: baseUrl, headers }));
   const client = createClient();
 
-  return client(model);
+  // For archestra models, extract the actual model name after the slash
+  const actualModel = model.startsWith('archestra/') ? model.substring('archestra/'.length) : model;
+
+  return client(actualModel);
 };
 
 const llmRoutes: FastifyPluginAsync = async (fastify) => {
@@ -78,7 +88,7 @@ const llmRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         // Set the chat context for Archestra MCP tools
         if (chatId) {
-          ArchestraMcpContext.setCurrentChatId(chatId);
+          archestraMcpContext.setCurrentChatId(chatId);
         }
 
         // Get tools based on chat selection or requested tools
@@ -90,25 +100,98 @@ const llmRoutes: FastifyPluginAsync = async (fastify) => {
 
           if (chatSelectedTools === null) {
             // null means all tools are selected
-            tools = toolAggregator.getAllTools();
+            tools = toolService.getAllTools();
           } else if (chatSelectedTools.length > 0) {
             // Use only the selected tools for this chat
-            tools = toolAggregator.getToolsById(chatSelectedTools);
+            tools = toolService.getToolsById(chatSelectedTools);
           }
           // If chatSelectedTools is empty array, tools remains empty (no tools enabled)
         } else if (requestedTools && requestedTools.length > 0) {
           // Fallback to requested tools if no chatId
-          tools = toolAggregator.getToolsById(requestedTools);
+          tools = toolService.getToolsById(requestedTools);
         } else {
           // Default to all tools if no specific selection
-          tools = toolAggregator.getAllTools();
+          tools = toolService.getAllTools();
+        }
+
+        // Log enabled tools for this request
+        const enabledToolIds = Object.keys(tools);
+        fastify.log.info(
+          `LLM Stream - Enabled tools for chat ${chatId || 'no-chat'}: ${enabledToolIds.length} tools (chatId: ${chatId}, toolCount: ${enabledToolIds.length})`
+        );
+
+        // Wrap tools with approval logic
+        const wrappedTools: any = {};
+        for (const [toolId, tool] of Object.entries(tools)) {
+          wrappedTools[toolId] = toolService.wrapToolWithApproval(tool, toolId, sessionId || '', chatId || 0);
         }
 
         // Create the stream with the appropriate model
         const streamConfig: Parameters<typeof streamText>[0] = {
           model: await createModelInstance(model, provider),
           messages: convertToModelMessages(messages),
-          stopWhen: stepCountIs(vercelSdkConfig.maxToolCalls),
+          stopWhen: ({ steps }) => {
+            // Log every time stopWhen is called
+            fastify.log.info(`[STOPWHEN] Called with ${steps.length} steps`);
+
+            // Stop if we've reached max tool calls
+            if (stepCountIs(vercelSdkConfig.maxToolCalls)({ steps })) {
+              fastify.log.info('[STOPWHEN] Stopping due to max tool calls reached');
+              return true;
+            }
+
+            // Check if ANY step has called enable_tools - if so, we should stop after it
+            let foundEnableToolsAtStep = -1;
+
+            // Log the constant value we're looking for
+            fastify.log.info(
+              `[STOPWHEN] Looking for ARCHESTRA_MCP_TOOLS.ENABLE_TOOLS = "${ARCHESTRA_MCP_TOOLS.ENABLE_TOOLS}"`
+            );
+
+            // Log all steps and check for enable_tools
+            steps.forEach((step, index) => {
+              fastify.log.info(
+                `[STOPWHEN] Step ${index}: Has toolCalls: ${!!step.toolCalls}, toolCalls count: ${step.toolCalls?.length || 0}`
+              );
+              if (step.toolCalls && step.toolCalls.length > 0) {
+                step.toolCalls.forEach((call, callIndex) => {
+                  fastify.log.info(`[STOPWHEN] Step ${index}, Tool ${callIndex}: toolName="${call.toolName}"`);
+
+                  // Check if this is enable_tools - also check for the actual string
+                  const isEnableTools =
+                    call.toolName === ARCHESTRA_MCP_TOOLS.ENABLE_TOOLS || call.toolName === 'archestra__enable_tools';
+
+                  if (isEnableTools && foundEnableToolsAtStep === -1) {
+                    foundEnableToolsAtStep = index;
+                    fastify.log.info(
+                      `[STOPWHEN] *** FOUND enable_tools at step ${index} (toolName="${call.toolName}") ***`
+                    );
+                  }
+                });
+              }
+            });
+
+            // If we found enable_tools in any step, check if we have any steps after it
+            if (foundEnableToolsAtStep >= 0) {
+              // Check if there are any steps with tool calls AFTER enable_tools
+              const stepsAfterEnableTools = steps.length - 1 - foundEnableToolsAtStep;
+              fastify.log.info(
+                `[STOPWHEN] Found enable_tools at step ${foundEnableToolsAtStep}, ${stepsAfterEnableTools} steps after it`
+              );
+
+              // We want to stop if there's any step after enable_tools
+              // This means enable_tools has completed and the AI is trying to continue
+              if (stepsAfterEnableTools > 0) {
+                fastify.log.info('[STOPWHEN] *** STOPPING STREAM - Steps detected after enable_tools ***');
+                return true;
+              } else {
+                fastify.log.info('[STOPWHEN] enable_tools is the last step, waiting for it to complete...');
+              }
+            }
+
+            fastify.log.info('[STOPWHEN] Not stopping - returning false');
+            return false;
+          },
           providerOptions: {
             /**
              * The following options are available for the OpenAI provider
@@ -133,27 +216,17 @@ const llmRoutes: FastifyPluginAsync = async (fastify) => {
             ollama: {},
           },
           onFinish: async ({ response, usage, text: _text, finishReason: _finishReason }) => {
-            console.log(JSON.stringify(response.messages));
-            // Save chat token usage
             if (usage && sessionId) {
-              let contextWindow: number;
-
-              // Get context window dynamically for Ollama, use hardcoded for others
-              if (isOllama) {
-                contextWindow = await ollamaClient.getModelContextWindow(model);
-              } else {
-                contextWindow = getModelContextWindow(model);
-              }
-
               const tokenUsage = {
                 promptTokens: usage.inputTokens,
                 completionTokens: usage.outputTokens,
                 totalTokens: usage.totalTokens,
                 model: model,
-                contextWindow: contextWindow,
+                contextWindow: isOllama
+                  ? await ollamaClient.getModelContextWindow(model)
+                  : getModelContextWindow(model),
               };
 
-              // Save token usage directly to the chat
               await Chat.updateTokenUsage(sessionId, tokenUsage);
 
               fastify.log.info(`Token usage saved for chat: ${JSON.stringify(tokenUsage)}`);
@@ -162,10 +235,13 @@ const llmRoutes: FastifyPluginAsync = async (fastify) => {
         };
 
         // Only add tools and toolChoice if tools are available
-        if (tools && Object.keys(tools).length > 0) {
-          streamConfig.tools = tools;
+        if (wrappedTools && Object.keys(wrappedTools).length > 0) {
+          streamConfig.tools = wrappedTools;
           streamConfig.toolChoice = toolChoice || 'auto';
         }
+
+        console.log('streamConfig.tools: ', streamConfig.tools);
+        console.log('streamConfig.toolChoice: ', streamConfig.toolChoice);
 
         const result = streamText(streamConfig);
 

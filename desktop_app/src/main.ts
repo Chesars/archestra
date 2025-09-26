@@ -6,10 +6,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { updateElectronApp } from 'update-electron-app';
 
-import ArchestraMcpClient from '@backend/archestraMcp';
+import ArchestraMcpClient from '@backend/clients/archestraMcp';
+import ollamaClient from '@backend/clients/ollama';
 import { runDatabaseMigrations } from '@backend/database';
 import UserModel from '@backend/models/user';
-import { OllamaClient, OllamaServer } from '@backend/ollama';
+import ollamaServer from '@backend/ollamaServer';
 import McpServerSandboxManager from '@backend/sandbox';
 import { startFastifyServer, stopFastifyServer } from '@backend/server';
 import log from '@backend/utils/logger';
@@ -17,6 +18,7 @@ import sentryClient from '@backend/utils/sentry';
 import WebSocketServer from '@backend/websocket';
 
 import config from './config';
+import { handleDeeplinkUrlOpen } from './deep-linking';
 import { setupProviderBrowserAuthHandlers } from './main-browser-auth';
 
 // Load environment variables from .env file
@@ -108,7 +110,7 @@ async function cleanup(): Promise<void> {
 
   try {
     // Stop Ollama server
-    await OllamaServer.stopServer();
+    await ollamaServer.stopServer();
   } catch (error) {
     log.error('Error stopping Ollama server:', error);
   }
@@ -239,14 +241,14 @@ async function startBackendServer(): Promise<void> {
     }
 
     // Start Ollama server first
-    await OllamaServer.startServer();
+    await ollamaServer.startServer();
 
     /**
      * Ensure that ollama models that're required for various app functionality are available,
      * downloading them if necessary. This must be done BEFORE starting MCP servers
      * so that tool analysis can proceed without waiting forever.
      */
-    await OllamaClient.ensureModelsAvailable();
+    await ollamaClient.ensureModelsAvailable();
 
     // Now start the sandbox manager which will connect MCP clients
     McpServerSandboxManager.onSandboxStartupSuccess = () => {
@@ -361,86 +363,10 @@ ipcMain.handle('oauth-callback', async (_event, params: any) => {
 // Set up provider-based browser authentication handlers
 setupProviderBrowserAuthHandlers();
 
-// Handle protocol for OAuth callbacks (Windows/Linux)
-const handleProtocol = (url: string) => {
-  log.info('Protocol handler called with URL:', url);
-
-  // Parse the OAuth callback URL
-  if (url.startsWith('archestra-ai://oauth-callback')) {
-    const urlObj = new URL(url);
-    const params = Object.fromEntries(urlObj.searchParams.entries());
-
-    // Store authorization code for MCP OAuth flows using proxy
-    if (params.code && params.state) {
-      log.info('📥 Received OAuth callback with code and state, sending to backend server...');
-
-      // Send authorization code to backend server via HTTP request
-      const serverPort = process.env.ARCHESTRA_API_SERVER_PORT || '54587';
-      const serverUrl = `http://localhost:${serverPort}/api/oauth/store-code`;
-
-      log.info('🌐 About to send HTTP request to backend server');
-      log.info('📍 Target URL:', serverUrl);
-      log.info('🔌 Server port:', serverPort);
-      log.info('📦 Request body:', JSON.stringify({ state: params.state, code: params.code }));
-
-      fetch(serverUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          state: params.state,
-          code: params.code,
-        }),
-      })
-        .then((response) => {
-          log.info('📥 Received response from backend server');
-          log.info('📊 Response status:', response.status);
-          log.info('📋 Response headers:', Object.fromEntries(response.headers.entries()));
-
-          if (response.ok) {
-            log.info('✅ HTTP request successful, parsing JSON response...');
-            return response.json();
-          } else {
-            log.error('❌ HTTP request failed with status:', response.status);
-            return response.text().then((errorText) => {
-              log.error('📄 Error response body:', errorText);
-              throw new Error(`HTTP ${response.status}: ${errorText}`);
-            });
-          }
-        })
-        .then((result) => {
-          log.info('✅ Successfully sent authorization code to backend server');
-          log.info('📨 Backend server response:', result);
-        })
-        .catch((error) => {
-          log.error('❌ Failed to send authorization code to backend server');
-          log.error('🔍 Error type:', error.constructor.name);
-          log.error('📝 Error message:', error.message);
-          log.error('📚 Error stack:', error.stack);
-
-          // Check if it's a network error
-          if (error.cause) {
-            log.error('🔗 Error cause:', error.cause);
-          }
-        });
-    }
-
-    // Send to renderer process
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('oauth-callback', params);
-
-      // Focus the window
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
-  }
-};
-
 // Handle the protocol on Windows/Linux
 app.on('open-url', (event, url) => {
   event.preventDefault();
-  handleProtocol(url);
+  handleDeeplinkUrlOpen(url, mainWindow);
 });
 
 // Handle protocol for single instance (Windows/Linux)
@@ -459,7 +385,7 @@ if (!gotTheLock) {
     // Handle protocol URL from command line (Windows/Linux)
     const url = commandLine.find((arg) => arg.startsWith('archestra-ai://'));
     if (url) {
-      handleProtocol(url);
+      handleDeeplinkUrlOpen(url, mainWindow);
     }
   });
 }

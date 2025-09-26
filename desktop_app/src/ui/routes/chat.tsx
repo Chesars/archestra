@@ -1,12 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef } from 'react';
+import { type ChatStatus } from 'ai';
 
+import { FULLY_QUALIFED_ARCHESTRA_MCP_TOOL_IDS, constructToolId } from '@constants';
 import ChatHistory from '@ui/components/Chat/ChatHistory';
 import ChatInput from '@ui/components/Chat/ChatInput';
 import EmptyChatState from '@ui/components/Chat/EmptyChatState';
 import SystemPrompt from '@ui/components/Chat/SystemPrompt';
 import config from '@ui/config';
 import { useChatAgent } from '@ui/contexts/chat-agent-context';
+import { resetChatTokenUsage } from '@ui/lib/clients/archestra/api/gen';
 import { useChatStore, useToolsStore } from '@ui/stores';
 
 export const Route = createFileRoute('/chat')({
@@ -14,13 +16,14 @@ export const Route = createFileRoute('/chat')({
 });
 
 function ChatPage() {
-  const { saveDraftMessage, getDraftMessage, clearDraftMessage } = useChatStore();
+  const { saveDraftMessage, getDraftMessage, clearDraftMessage, selectedModel } = useChatStore();
   const { setOnlyTools } = useToolsStore();
   const {
     messages,
     setMessages,
     sendMessage,
     stop,
+    status,
     isLoading,
     isSubmitting,
     setIsSubmitting,
@@ -42,30 +45,10 @@ function ChatPage() {
   // Get current input from draft messages
   const currentInput = currentChat ? getDraftMessage(currentChat.id) : '';
 
-  // Simple debounce implementation
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const debouncedSaveDraft = useCallback((chatId: number, content: string) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      // This could be used for future persistence to localStorage or server
-      console.log('Debounced save draft:', { chatId, contentLength: content.length });
-    }, 500);
-  }, []);
-
-  // Cleanup timeout on unmount to prevent memory leak
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, []);
-
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     if (currentChat) {
       saveDraftMessage(currentChat.id, newValue);
-      debouncedSaveDraft(currentChat.id, newValue);
     }
   };
 
@@ -74,10 +57,15 @@ function ChatPage() {
     if (isSubmittingDisabled) return;
     if (currentInput.trim() && currentChat) {
       let messageText = currentInput;
+
       if (hasTooManyTools) {
-        setOnlyTools(['archestra__list_available_tools', 'archestra__enable_tools', 'archestra__disable_tools']);
-        messageText = `You currently have only list_available_tools and enable_tools enabled. Follow these steps:\n1. Call list_available_tools to see all available tool IDs\n2. Call enable_tools with the specific tool IDs you need, for example: {"toolIds": ["filesystem__read_file", "filesystem__write_file"]}\n3. After enabling the necessary tools, disable Archestra tools using disable_tools.\n4. After, proceed with this task: \n\n${currentInput}`;
+        const { LIST_AVAILABLE_TOOLS, ENABLE_TOOLS, DISABLE_TOOLS } = FULLY_QUALIFED_ARCHESTRA_MCP_TOOL_IDS;
+
+        setOnlyTools([LIST_AVAILABLE_TOOLS, ENABLE_TOOLS, DISABLE_TOOLS]);
+
+        messageText = `You currently have only ${LIST_AVAILABLE_TOOLS}, ${ENABLE_TOOLS}, ${DISABLE_TOOLS} enabled. Follow these steps:\n1. Call ${LIST_AVAILABLE_TOOLS} to see all available tool IDs\n2. Call ${ENABLE_TOOLS} with the specific tool IDs you need, for example: {"toolIds": ["${constructToolId('filesystem', 'read_file')}", "${constructToolId('filesystem', 'write_file')}", "${constructToolId('remote-mcp', 'search_repositories')}"}}\n3. After enabling the necessary tools, disable Archestra tools using ${DISABLE_TOOLS}.\n4. After, proceed with this task: \n\n${currentInput}`;
       }
+
       setIsSubmitting(true);
       sendMessage({ text: messageText });
       clearDraftMessage(currentChat.id);
@@ -91,7 +79,7 @@ function ChatPage() {
 
   const handleRerunAgent = async () => {
     const firstUserMessage = messages.find((msg) => msg.role === 'user');
-    if (!firstUserMessage) return;
+    if (!firstUserMessage || !currentChat) return;
 
     // Extract text from message.parts for rerun logic
     let messageText = '';
@@ -102,6 +90,16 @@ function ChatPage() {
       }
     }
     if (!messageText) return;
+
+    // Reset token usage for this chat session
+    try {
+      await resetChatTokenUsage({
+        path: { sessionId: currentChat.sessionId },
+      });
+    } catch (error) {
+      console.error('Failed to reset token usage:', error);
+      // Continue with restart even if token reset fails
+    }
 
     // Clear all messages except memories (system message)
     const memoriesMessage = messages.find((msg) => msg.id === config.chat.systemMemoriesMessageId);
@@ -115,7 +113,8 @@ function ChatPage() {
     sendMessage({ text: messageText });
   };
 
-  const isSubmittingDisabled = !currentInput.trim() || isLoading || isSubmitting;
+  const isSubmittingDisabled =
+    !currentInput.trim() || isLoading || isSubmitting || !selectedModel || selectedModel === '';
 
   const isChatEmpty = messages.length === 0;
 
@@ -161,7 +160,7 @@ function ChatPage() {
             editingContent={editingContent}
             onEditStart={startEdit}
             onEditCancel={cancelEdit}
-            onEditSave={async (messageId: string) => await saveEdit(messageId)}
+            onEditSave={async (messageId: string, newText: string) => await saveEdit(messageId, newText)}
             onEditChange={setEditingContent}
             onDeleteMessage={async (messageId: string) => await deleteMessage(messageId)}
             onRegenerateMessage={handleRegenerateMessage}
@@ -185,6 +184,7 @@ function ChatPage() {
           onRerunAgent={handleRerunAgent}
           rerunAgentDisabled={isLoading || isSubmitting}
           isSubmitting={isSubmitting}
+          status={status as ChatStatus}
         />
       </div>
     </div>

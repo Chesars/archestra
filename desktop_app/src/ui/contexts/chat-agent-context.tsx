@@ -1,4 +1,4 @@
-import { UIMessage } from 'ai';
+import { type ChatStatus, UIMessage } from 'ai';
 import { createContext, useContext } from 'react';
 
 import { useChatStore } from '@ui/stores';
@@ -10,7 +10,7 @@ interface IChatAgentContext {
   setMessages: (msgs: UIMessage[]) => void;
   sendMessage: (args: { text: string }) => void;
   stop: () => void;
-  status: string;
+  status: ChatStatus;
   regenerate: () => void;
   isLoading: boolean;
   isSubmitting: boolean;
@@ -20,7 +20,7 @@ interface IChatAgentContext {
   setEditingContent: (c: string) => void;
   startEdit: (id: string, content: string) => void;
   cancelEdit: () => void;
-  saveEdit: (id: string) => Promise<void>;
+  saveEdit: (id: string, newText: string) => Promise<void>;
   deleteMessage: (id: string) => Promise<void>;
   handleRegenerateMessage: (idx: number) => Promise<void>;
   regeneratingIndex: number | null;
@@ -94,9 +94,9 @@ function ChatAgentContextProvider({ children }: { children: React.ReactNode }) {
         setEditingContent: currentValues.setEditingContent,
         startEdit: currentValues.startEdit,
         cancelEdit: currentValues.cancelEdit,
-        saveEdit: async (id: string) => {
+        saveEdit: async (id: string, newText: string) => {
           if (currentValues.saveEdit) {
-            await currentValues.saveEdit(id);
+            await currentValues.saveEdit(id, newText);
           }
         },
         deleteMessage: async (id: string) => {

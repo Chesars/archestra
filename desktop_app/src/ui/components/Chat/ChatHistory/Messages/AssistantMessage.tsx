@@ -1,50 +1,40 @@
 import { type DynamicToolUIPart, ReasoningUIPart, type TextUIPart, UIMessage } from 'ai';
 import { Edit2, RefreshCw, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import ThinkBlock from '@ui/components/ThinkBlock';
-import TokenUsageDisplay from '@ui/components/TokenUsageDisplay';
 import ToolInvocation from '@ui/components/ToolInvocation';
 import { AIResponse } from '@ui/components/kibo/ai-response';
 import { Button } from '@ui/components/ui/button';
 import { Textarea } from '@ui/components/ui/textarea';
-import { ToolCallStatus } from '@ui/types';
 
 import RegenerationSkeleton from './RegenerationSkeleton';
 
 interface AssistantMessageProps {
   message: UIMessage;
   isEditing: boolean;
-  editingContent: string;
+  defaultValue: string;
   onEditStart: () => void;
   onEditCancel: () => void;
-  onEditSave: () => void;
+  onSave: (content?: string) => Promise<void>;
   onEditChange: (content: string) => void;
   onDelete: () => void;
   onRegenerate: () => void;
   isRegenerating?: boolean;
-  tokenUsage?: {
-    promptTokens?: number | null;
-    completionTokens?: number | null;
-    totalTokens?: number | null;
-    model?: string | null;
-    modelContextWindow?: number | null;
-  };
 }
 
 export default function AssistantMessage({
   message,
   isEditing,
-  editingContent,
+  defaultValue,
   onEditStart,
   onEditCancel,
-  onEditSave,
-  onEditChange,
+  onSave,
   onDelete,
   onRegenerate,
   isRegenerating = false,
-  tokenUsage,
 }: AssistantMessageProps) {
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
   if (!message.parts) {
@@ -63,14 +53,9 @@ export default function AssistantMessage({
   if (isEditing) {
     return (
       <div className="space-y-2">
-        <Textarea
-          value={editingContent}
-          onChange={(e) => onEditChange(e.target.value)}
-          className="min-h-[100px] resize-none"
-          autoFocus
-        />
+        <Textarea ref={textAreaRef} defaultValue={defaultValue} className="min-h-[100px] resize-none" autoFocus />
         <div className="flex gap-2">
-          <Button size="sm" onClick={onEditSave}>
+          <Button size="sm" onClick={() => onSave(textAreaRef.current?.value)}>
             Save
           </Button>
           <Button size="sm" variant="outline" onClick={onEditCancel}>
@@ -113,23 +98,7 @@ export default function AssistantMessage({
 
   // Add tool invocations
   toolParts.forEach((tool, index) => {
-    orderedElements.push(
-      <ToolInvocation
-        key={tool.toolCallId || `tool-${index}`}
-        toolName={tool.toolName}
-        args={'input' in tool ? tool.input : {}}
-        result={'output' in tool ? tool.output : undefined}
-        state={
-          tool.state === 'output-available'
-            ? ToolCallStatus.Completed
-            : tool.state === 'output-error'
-              ? ToolCallStatus.Error
-              : tool.state === 'input-streaming'
-                ? ToolCallStatus.Pending
-                : ToolCallStatus.Pending
-        }
-      />
-    );
+    orderedElements.push(<ToolInvocation key={tool.toolCallId || `tool-${index}`} tool={tool} />);
   });
 
   // Add final text content last
@@ -142,20 +111,6 @@ export default function AssistantMessage({
       <div className="gap-y-2 grid grid-cols-1 pr-24">
         {isRegenerating ? <RegenerationSkeleton /> : orderedElements}
       </div>
-
-      {/* Token usage display */}
-      {tokenUsage && tokenUsage.totalTokens && (
-        <div className="mt-2 flex items-center gap-2">
-          <TokenUsageDisplay
-            promptTokens={tokenUsage.promptTokens}
-            completionTokens={tokenUsage.completionTokens}
-            totalTokens={tokenUsage.totalTokens}
-            model={tokenUsage.model}
-            contextWindow={tokenUsage.modelContextWindow}
-            variant="inline"
-          />
-        </div>
-      )}
 
       {isHovered && (
         <div className="absolute top-0 right-0 flex gap-1">
